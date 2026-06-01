@@ -1,0 +1,41 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: lscda-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-lscda}
+      MYSQL_USER: ${MYSQL_USER:-lscda}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-lscda_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: lscda-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: mysql://${MYSQL_USER:-lscda}:${MYSQL_PASSWORD:-lscda_password}@db:3306/${MYSQL_DATABASE:-lscda}
+      JWT_SECRET: ${JWT_SECRET}
+      VITE_APP_ID: ${VITE_APP_ID}
+      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL}
+      OWNER_OPEN_ID: ${OWNER_OPEN_ID}
+      BUILT_IN_FORGE_API_URL: ${BUILT_IN_FORGE_API_URL}
+      BUILT_IN_FORGE_API_KEY: ${BUILT_IN_FORGE_API_KEY}
+    ports:
+      - "3000:3000"
+
+volumes:
+  db_data:
