@@ -43,7 +43,7 @@ services:
       DATABASE_URL: mysql://${MYSQL_USER:-lscda}:${MYSQL_PASSWORD:-lscda_password}@db:3306/${MYSQL_DATABASE:-lscda}
       JWT_SECRET: ${JWT_SECRET}
     ports:
-      - "3001:3000"
+      - "3001:3050"
 
 volumes:
   db_data:
