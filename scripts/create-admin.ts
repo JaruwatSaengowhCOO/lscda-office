@@ -111,5 +111,7 @@ async function main() {
 
 main().catch(err => {
   console.error("❌ Error:", err.message);
+  if (err.cause) console.error("Cause:", err.cause);
+  console.error(err);
   process.exit(1);
 });

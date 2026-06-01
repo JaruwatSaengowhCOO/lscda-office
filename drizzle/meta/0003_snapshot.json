@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "4823fab5-fe05-4fce-9874-86d191e223a0",
-  "prevId": "27957a8f-b0b7-4e9a-89ad-bb5b29e2ac6b",
+  "id": "924746cb-649c-4af3-b0b9-c48e0cb8fc68",
+  "prevId": "e5ee2131-8259-4115-a635-13e6b27e17f1",
   "tables": {
     "activity_logs": {
       "name": "activity_logs",
@@ -1669,6 +1669,20 @@
           "notNull": false,
           "autoincrement": false
         },
+        "username": {
+          "name": "username",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "loginMethod": {
           "name": "loginMethod",
           "type": "varchar(64)",
@@ -1762,6 +1776,12 @@
           "name": "users_openId_unique",
           "columns": [
             "openId"
+          ]
+        },
+        "users_username_unique": {
+          "name": "users_username_unique",
+          "columns": [
+            "username"
           ]
         }
       },
@@ -2025,7 +2045,10 @@
   "_meta": {
     "schemas": {},
     "tables": {},
-    "columns": {}
+    "columns": {
+      "\"users\".\"createdAt\"": "\"users\".\"created_at\"",
+      "\"users\".\"updatedAt\"": "\"users\".\"updated_at\""
+    }
   },
   "internal": {
     "tables": {},

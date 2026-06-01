@@ -35,9 +35,6 @@ services:
     build:
       context: .
       target: runner
-      args:
-        VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL}
-        VITE_APP_ID: ${VITE_APP_ID}
     container_name: lscda-app
     restart: unless-stopped
     depends_on:

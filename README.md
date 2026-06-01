@@ -96,7 +96,6 @@ Available pre-defined system envs:
 - `JWT_SECRET`: Session cookie signing secret
 - `VITE_APP_ID`: Manus OAuth application ID
 - `OAUTH_SERVER_URL`: Manus OAuth backend base URL
-- `VITE_OAUTH_PORTAL_URL`: Manus login portal URL (frontend)
 - `OWNER_OPEN_ID`, `OWNER_NAME`: Owner's info
 - `BUILT_IN_FORGE_API_URL`: Manus built-in apis (includes llm, storage, data_api, notification, etc...)
 - `BUILT_IN_FORGE_API_KEY`: Bearer token used by Manus built-in apis (server-side)

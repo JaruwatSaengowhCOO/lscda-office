@@ -13,8 +13,6 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG VITE_OAUTH_PORTAL_URL
-ARG VITE_APP_ID
 RUN pnpm build
 
 # Production

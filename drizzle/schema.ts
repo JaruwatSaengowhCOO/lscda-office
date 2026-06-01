@@ -50,8 +50,8 @@ export const users = mysqlTable("users", {
   badgeNumber: varchar("badge_number", { length: 32 }),
   phone: varchar("phone", { length: 32 }),
   isActive: boolean("is_active").default(true).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
