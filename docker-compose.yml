@@ -32,18 +32,21 @@ services:
     profiles: ["migrate"]
 
   app:
-    build: .
+    build:
+      context: .
+      target: runner
     container_name: lscda-app
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
+      PORT: 3050
       NODE_ENV: production
       DATABASE_URL: mysql://${MYSQL_USER:-lscda}:${MYSQL_PASSWORD:-lscda_password}@db:3306/${MYSQL_DATABASE:-lscda}
       JWT_SECRET: ${JWT_SECRET}
     ports:
-      - "3050:3001"
+      - "3001:3050"
 
 volumes:
   db_data:
