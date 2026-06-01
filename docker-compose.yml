@@ -29,11 +29,6 @@ services:
       NODE_ENV: production
       DATABASE_URL: mysql://${MYSQL_USER:-lscda}:${MYSQL_PASSWORD:-lscda_password}@db:3306/${MYSQL_DATABASE:-lscda}
       JWT_SECRET: ${JWT_SECRET}
-      VITE_APP_ID: ${VITE_APP_ID}
-      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL}
-      OWNER_OPEN_ID: ${OWNER_OPEN_ID}
-      BUILT_IN_FORGE_API_URL: ${BUILT_IN_FORGE_API_URL}
-      BUILT_IN_FORGE_API_KEY: ${BUILT_IN_FORGE_API_KEY}
     ports:
       - "3000:3000"
 
