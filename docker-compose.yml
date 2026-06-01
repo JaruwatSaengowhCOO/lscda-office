@@ -18,6 +18,19 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate:
+    build:
+      context: .
+      target: migrator
+    container_name: lscda-migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-lscda}:${MYSQL_PASSWORD:-lscda_password}@db:3306/${MYSQL_DATABASE:-lscda}
+    entrypoint: ["sh", "-c", "corepack enable && pnpm db:push"]
+    profiles: ["migrate"]
+
   app:
     build: .
     container_name: lscda-app
@@ -30,7 +43,7 @@ services:
       DATABASE_URL: mysql://${MYSQL_USER:-lscda}:${MYSQL_PASSWORD:-lscda_password}@db:3306/${MYSQL_DATABASE:-lscda}
       JWT_SECRET: ${JWT_SECRET}
     ports:
-      - "3000:3000"
+      - "3001:3000"
 
 volumes:
   db_data:

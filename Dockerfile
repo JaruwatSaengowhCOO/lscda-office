@@ -26,3 +26,11 @@ COPY --from=builder /app/package.json ./package.json
 
 EXPOSE 3000
 CMD ["node", "dist/index.js"]
+
+# Migrate (has pnpm + source for drizzle-kit)
+FROM base AS migrator
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN corepack enable && corepack prepare pnpm@10.4.1 --activate
+CMD ["pnpm", "db:push"]
