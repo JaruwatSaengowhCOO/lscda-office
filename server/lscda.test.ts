@@ -84,7 +84,7 @@ vi.mock("./db", () => ({
 
 // ─── Mock storage ────────────────────────────────────────────────────────────
 vi.mock("./storage", () => ({
-  storagePut: vi.fn().mockResolvedValue({ key: "test-key", url: "/manus-storage/test-key" }),
+  storagePut: vi.fn().mockResolvedValue({ key: "test-key", url: "/uploads/test-key" }),
 }));
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

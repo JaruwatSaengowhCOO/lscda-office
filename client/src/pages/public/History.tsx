@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { ChevronRight, Scale, Award, BookOpen, Users } from "lucide-react";
 
-const LOGO_URL = "/manus-storage/DAOCoLS_9f04c8cf.webp";
+const LOGO_URL = "/uploads/DAOCoLS.webp";
 
 const timeline = [
   {

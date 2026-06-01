@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getLoginUrl } from "@/const";
 
-const LOGO_URL = "/manus-storage/DAOCoLS_9f04c8cf.webp";
+const LOGO_URL = "/uploads/DAOCoLS.webp";
 
 const navLinks = [
   { label: "Home", href: "/" },
