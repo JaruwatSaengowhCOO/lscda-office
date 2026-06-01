@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import { authRouter } from "./routers/auth";
 import { casesRouter } from "./routers/cases";
 import { defendantsRouter } from "./routers/defendants";
 import { hearingsRouter } from "./routers/hearings";
@@ -24,6 +25,7 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+    login: authRouter.login,
   }),
   cases: casesRouter,
   defendants: defendantsRouter,

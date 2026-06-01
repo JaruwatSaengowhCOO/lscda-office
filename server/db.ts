@@ -81,6 +81,13 @@ export async function getUserByOpenId(openId: string) {
   return result[0];
 }
 
+export async function getUserByUsername(username: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+  return result[0];
+}
+
 export async function getAllUsers() {
   const db = await getDb();
   if (!db) return [];
@@ -91,6 +98,62 @@ export async function updateUserDaRole(userId: number, daRole: string, departmen
   const db = await getDb();
   if (!db) return;
   await db.update(users).set({ daRole: daRole as any, department, badgeNumber, phone }).where(eq(users.id, userId));
+}
+
+export async function createUser(data: {
+  username: string;
+  passwordHash: string;
+  name: string;
+  email?: string;
+  role?: "user" | "admin";
+  daRole?: string;
+  department?: string;
+  badgeNumber?: string;
+  phone?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const openId = `local_${data.username}_${Date.now()}`;
+  await db.insert(users).values({
+    openId,
+    username: data.username,
+    passwordHash: data.passwordHash,
+    name: data.name,
+    email: data.email ?? null,
+    role: data.role ?? "user",
+    daRole: (data.daRole as any) ?? "intern",
+    department: data.department,
+    badgeNumber: data.badgeNumber,
+    phone: data.phone,
+    isActive: true,
+    lastSignedIn: new Date(),
+  });
+}
+
+export async function updateUser(userId: number, data: {
+  name?: string;
+  email?: string;
+  role?: "user" | "admin";
+  daRole?: string;
+  department?: string;
+  badgeNumber?: string;
+  phone?: string;
+  isActive?: boolean;
+  passwordHash?: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  const update: Record<string, unknown> = {};
+  if (data.name !== undefined) update.name = data.name;
+  if (data.email !== undefined) update.email = data.email;
+  if (data.role !== undefined) update.role = data.role;
+  if (data.daRole !== undefined) update.daRole = data.daRole;
+  if (data.department !== undefined) update.department = data.department;
+  if (data.badgeNumber !== undefined) update.badgeNumber = data.badgeNumber;
+  if (data.phone !== undefined) update.phone = data.phone;
+  if (data.isActive !== undefined) update.isActive = data.isActive;
+  if (data.passwordHash !== undefined) update.passwordHash = data.passwordHash;
+  await db.update(users).set(update as any).where(eq(users.id, userId));
 }
 
 // ─── Cases ────────────────────────────────────────────────────────────────────

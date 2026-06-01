@@ -15,6 +15,13 @@
       "when": 1780282602841,
       "tag": "0001_brown_beyonder",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1780282700000,
+      "tag": "0002_add_local_auth",
+      "breakpoints": true
     }
   ]
 }
