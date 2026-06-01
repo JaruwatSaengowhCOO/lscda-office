@@ -48,10 +48,8 @@ services:
       NODE_ENV: production
       DATABASE_URL: mysql://${MYSQL_USER:-lscda}:${MYSQL_PASSWORD:-lscda_password}@db:3306/${MYSQL_DATABASE:-lscda}
       JWT_SECRET: ${JWT_SECRET}
-      VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL}
-      VITE_APP_ID: ${VITE_APP_ID}
     ports:
-      - "3001:3050"
+      - "3050:3050"
 
 volumes:
   db_data:
