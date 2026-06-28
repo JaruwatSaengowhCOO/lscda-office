@@ -1,8 +1,8 @@
-import { TRPCError } from "@trpc/server";
+﻿import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
-import { getDb, getDashboardStats } from "../db";
-import { hasPermission } from "../../shared/permissions";
+import { getDb, getDashboardStats , hasPermission } from "../db";
+
 import { cases, courtHearings, defendants, victims, complaints } from "../../drizzle/schema";
 import { and, eq, gte, lte, sql, desc } from "drizzle-orm";
 
@@ -16,7 +16,7 @@ export const reportsRouter = router({
     .input(z.object({ year: z.number(), month: z.number() }))
     .query(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "view_reports")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "view_reports")) throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) return null;
 
@@ -51,7 +51,7 @@ export const reportsRouter = router({
   convictionStats: protectedProcedure
     .query(async ({ ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "view_reports")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "view_reports")) throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) return null;
 
@@ -76,7 +76,7 @@ export const reportsRouter = router({
     .input(z.object({ year: z.number() }))
     .query(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "view_reports")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "view_reports")) throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) return null;
 

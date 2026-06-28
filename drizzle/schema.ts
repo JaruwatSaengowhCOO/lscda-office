@@ -81,38 +81,84 @@ export type InsertDefendant = typeof defendants.$inferInsert;
 
 // ─── Cases ────────────────────────────────────────────────────────────────────
 
-export const caseStatusEnum = mysqlEnum("case_status", [
+export const CASE_STATUSES = [
   "investigation",
+  "submitted_to_da",
   "case_review",
+  "rejected",
   "filed",
+  "warrant_requested",
+  "warrant_issued",
   "arraignment",
   "preliminary_hearing",
+  "pre_trial",
   "trial",
+  "verdict",
   "sentencing",
+  "appeal",
   "closed",
   "dismissed",
-]);
+] as const;
+
+export type CaseStatus = typeof CASE_STATUSES[number];
+
+export const CASE_STATUS_LABELS: Record<CaseStatus, string> = {
+  investigation: "Investigation",
+  submitted_to_da: "Submitted to DA",
+  case_review: "Case Review",
+  rejected: "Rejected",
+  filed: "Filed",
+  warrant_requested: "Warrant Requested",
+  warrant_issued: "Warrant Issued",
+  arraignment: "Arraignment",
+  preliminary_hearing: "Preliminary Hearing",
+  pre_trial: "Pre-Trial",
+  trial: "Trial",
+  verdict: "Verdict",
+  sentencing: "Sentencing",
+  appeal: "Appeal",
+  closed: "Closed",
+  dismissed: "Dismissed",
+};
+
+/** Valid forward transitions for workflow enforcement */
+export const CASE_STATUS_TRANSITIONS: Record<CaseStatus, CaseStatus[]> = {
+  investigation: ["submitted_to_da", "closed", "dismissed"],
+  submitted_to_da: ["case_review", "rejected"],
+  case_review: ["filed", "rejected", "warrant_requested"],
+  rejected: ["investigation"],
+  filed: ["arraignment", "dismissed"],
+  warrant_requested: ["warrant_issued", "case_review"],
+  warrant_issued: ["arraignment"],
+  arraignment: ["preliminary_hearing", "dismissed"],
+  preliminary_hearing: ["pre_trial", "dismissed"],
+  pre_trial: ["trial", "dismissed"],
+  trial: ["verdict", "dismissed"],
+  verdict: ["sentencing", "appeal", "closed"],
+  sentencing: ["appeal", "closed"],
+  appeal: ["closed", "dismissed"],
+  closed: [],
+  dismissed: [],
+};
+
+export const caseStatusEnum = mysqlEnum("case_status", CASE_STATUSES);
 
 export const cases = mysqlTable("cases", {
   id: int("id").autoincrement().primaryKey(),
   caseNumber: varchar("case_number", { length: 64 }).notNull().unique(),
   title: varchar("title", { length: 256 }).notNull(),
   description: text("description"),
-  status: mysqlEnum("status", [
-    "investigation",
-    "case_review",
-    "filed",
-    "arraignment",
-    "preliminary_hearing",
-    "trial",
-    "sentencing",
-    "closed",
-    "dismissed",
-  ]).default("investigation").notNull(),
+  status: mysqlEnum("status", CASE_STATUSES).default("investigation").notNull(),
+  priority: mysqlEnum("priority", ["low", "medium", "high", "critical"]).default("medium"),
   arrestingAgency: varchar("arresting_agency", { length: 128 }),
+  investigatingAgency: varchar("investigating_agency", { length: 128 }),
   court: varchar("court", { length: 128 }),
   leadProsecutorId: int("lead_prosecutor_id"),
+  assignedJudge: varchar("assigned_judge", { length: 128 }),
+  defendantName: varchar("defendant_name", { length: 256 }),
+  defendantId: int("defendant_id"),
   filedDate: timestamp("filed_date"),
+  filingDate: timestamp("filing_date"),
   closedDate: timestamp("closed_date"),
   outcome: varchar("outcome", { length: 64 }),
   isPublic: boolean("is_public").default(false).notNull(),
@@ -167,11 +213,15 @@ export const warrants = mysqlTable("warrants", {
   id: int("id").autoincrement().primaryKey(),
   caseId: int("case_id"),
   warrantNumber: varchar("warrant_number", { length: 64 }).notNull().unique(),
-  type: mysqlEnum("type", ["search_warrant", "arrest_warrant", "subpoena"]).notNull(),
-  status: mysqlEnum("status", ["draft", "pending_approval", "issued", "executed", "expired"]).default("draft").notNull(),
+  type: mysqlEnum("type", ["arrest_warrant", "search_warrant", "bench_warrant", "subpoena"]).notNull(),
+  status: mysqlEnum("status", ["draft", "pending_approval", "approved", "denied", "executed", "expired"]).default("draft").notNull(),
   subject: varchar("subject", { length: 256 }),
   description: text("description"),
+  requestedBy: varchar("requested_by", { length: 128 }),
+  approvedBy: varchar("approved_by", { length: 128 }),
   issuedBy: varchar("issued_by", { length: 128 }),
+  dateRequested: timestamp("date_requested"),
+  dateApproved: timestamp("date_approved"),
   issuedAt: timestamp("issued_at"),
   executedAt: timestamp("executed_at"),
   expiresAt: timestamp("expires_at"),
@@ -198,6 +248,9 @@ export const evidence = mysqlTable("evidence", {
   mimeType: varchar("mime_type", { length: 128 }),
   chainOfCustody: json("chain_of_custody"),
   uploadedBy: int("uploaded_by"),
+  submittedByName: varchar("submitted_by_name", { length: 256 }),
+  dateCollected: timestamp("date_collected"),
+  locationCollected: varchar("location_collected", { length: 256 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });
@@ -380,6 +433,18 @@ export const activityLogs = mysqlTable("activity_logs", {
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertActivityLog = typeof activityLogs.$inferInsert;
 
+// ─── Role Permissions ─────────────────────────────────────────────────────────
+
+export const rolePermissions = mysqlTable("role_permissions", {
+  id: int("id").autoincrement().primaryKey(),
+  role: daRoleEnum.notNull(),
+  permission: varchar("permission", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type RolePermission = typeof rolePermissions.$inferSelect;
+
+
 // ─── Public Tips ──────────────────────────────────────────────────────────────
 
 export const publicTips = mysqlTable("public_tips", {
@@ -411,3 +476,94 @@ export const publicRequests = mysqlTable("public_requests", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });
+
+// ─── Case Documents ───────────────────────────────────────────────────────────
+
+export const CASE_DOCUMENT_TYPES = [
+  "criminal_complaint",
+  "arrest_report",
+  "investigation_report",
+  "search_warrant_affidavit",
+  "arrest_warrant_application",
+  "subpoena",
+  "motion",
+  "plea_agreement",
+  "sentencing_memorandum",
+  "court_order",
+  "evidence_report",
+  "other",
+] as const;
+
+export type CaseDocumentType = typeof CASE_DOCUMENT_TYPES[number];
+
+export const CASE_DOCUMENT_TYPE_LABELS: Record<CaseDocumentType, string> = {
+  criminal_complaint: "Criminal Complaint",
+  arrest_report: "Arrest Report",
+  investigation_report: "Investigation Report",
+  search_warrant_affidavit: "Search Warrant Affidavit",
+  arrest_warrant_application: "Arrest Warrant Application",
+  subpoena: "Subpoena",
+  motion: "Motion",
+  plea_agreement: "Plea Agreement",
+  sentencing_memorandum: "Sentencing Memorandum",
+  court_order: "Court Order",
+  evidence_report: "Evidence Report",
+  other: "Other",
+};
+
+export const caseDocuments = mysqlTable("case_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  caseId: int("case_id").notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  documentType: mysqlEnum("document_type", CASE_DOCUMENT_TYPES).notNull().default("other"),
+  authorId: int("author_id"),
+  authorName: varchar("author_name", { length: 256 }),
+  fileKey: varchar("file_key", { length: 512 }),
+  fileUrl: varchar("file_url", { length: 512 }),
+  fileName: varchar("file_name", { length: 256 }),
+  fileSize: bigint("file_size", { mode: "number" }),
+  mimeType: varchar("mime_type", { length: 128 }),
+  version: int("version").default(1).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CaseDocument = typeof caseDocuments.$inferSelect;
+export type InsertCaseDocument = typeof caseDocuments.$inferInsert;
+
+export const caseDocumentVersions = mysqlTable("case_document_versions", {
+  id: int("id").autoincrement().primaryKey(),
+  documentId: int("document_id").notNull(),
+  version: int("version").notNull(),
+  fileKey: varchar("file_key", { length: 512 }),
+  fileUrl: varchar("file_url", { length: 512 }),
+  fileName: varchar("file_name", { length: 256 }),
+  fileSize: bigint("file_size", { mode: "number" }),
+  uploadedBy: int("uploaded_by"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type CaseDocumentVersion = typeof caseDocumentVersions.$inferSelect;
+
+// ─── Witnesses ────────────────────────────────────────────────────────────────
+
+export const witnesses = mysqlTable("witnesses", {
+  id: int("id").autoincrement().primaryKey(),
+  caseId: int("case_id").notNull(),
+  name: varchar("name", { length: 256 }).notNull(),
+  phone: varchar("phone", { length: 32 }),
+  email: varchar("email", { length: 320 }),
+  address: text("address"),
+  witnessType: mysqlEnum("witness_type", ["eyewitness", "expert", "character", "law_enforcement", "other"]).notNull().default("other"),
+  statement: text("statement"),
+  isProtected: boolean("is_protected").default(false).notNull(),
+  notes: text("notes"),
+  createdBy: int("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Witness = typeof witnesses.$inferSelect;
+export type InsertWitness = typeof witnesses.$inferInsert;

@@ -9,7 +9,7 @@ services:
       MYSQL_USER: ${MYSQL_USER:-lscda}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-lscda_password}
     ports:
-      - "3307:3306"
+      - "3390:3306"
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
@@ -17,19 +17,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  migrate:
-    build:
-      context: .
-      target: migrator
-    container_name: lscda-migrate
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: mysql://${MYSQL_USER:-lscda}:${MYSQL_PASSWORD:-lscda_password}@db:3306/${MYSQL_DATABASE:-lscda}
-    entrypoint: ["sh", "-c", "corepack enable && pnpm db:push"]
-    profiles: ["migrate"]
 
   app:
     build:
@@ -47,6 +34,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
     ports:
       - "3050:3050"
+    volumes:
+      - uploads_data:/app/uploads
 
 volumes:
   db_data:
+  uploads_data:

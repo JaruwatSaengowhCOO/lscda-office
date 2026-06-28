@@ -1,8 +1,8 @@
-import { TRPCError } from "@trpc/server";
+﻿import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
-import { createHearing, getHearings, getUpcomingHearings, updateHearing, logActivity, createNotification, getAllUsers } from "../db";
-import { hasPermission } from "../../shared/permissions";
+import { createHearing, getHearings, getUpcomingHearings, updateHearing, logActivity, createNotification, getAllUsers , hasPermission } from "../db";
+
 
 export const hearingsRouter = router({
   list: protectedProcedure
@@ -13,7 +13,7 @@ export const hearingsRouter = router({
     }).optional())
     .query(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "view_hearing")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "view_hearing")) throw new TRPCError({ code: "FORBIDDEN" });
       return getHearings({
         caseId: input?.caseId,
         from: input?.from ? new Date(input.from) : undefined,
@@ -37,7 +37,7 @@ export const hearingsRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "create_hearing")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "create_hearing")) throw new TRPCError({ code: "FORBIDDEN" });
       const id = await createHearing({
         ...input,
         scheduledAt: new Date(input.scheduledAt),
@@ -58,6 +58,14 @@ export const hearingsRouter = router({
         }
       }
       await logActivity({ userId: ctx.user.id, userName: ctx.user.name ?? "", action: "create_hearing", entityType: "hearing", entityId: id });
+      await logActivity({
+        userId: ctx.user.id,
+        userName: ctx.user.name ?? "",
+        action: "hearing_scheduled",
+        entityType: "case",
+        entityId: input.caseId,
+        details: `${input.hearingType} scheduled for ${new Date(input.scheduledAt).toISOString()}`,
+      });
       return { id };
     }),
 
@@ -73,7 +81,7 @@ export const hearingsRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "create_hearing")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "create_hearing")) throw new TRPCError({ code: "FORBIDDEN" });
       const { id, scheduledAt, ...rest } = input;
       await updateHearing(id, {
         ...rest,

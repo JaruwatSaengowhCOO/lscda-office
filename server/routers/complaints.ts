@@ -1,8 +1,8 @@
-import { TRPCError } from "@trpc/server";
+﻿import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { createComplaint, getComplaints, updateComplaint, logActivity, createNotification, getAllUsers } from "../db";
-import { hasPermission } from "../../shared/permissions";
+import { createComplaint, getComplaints, updateComplaint, logActivity, createNotification, getAllUsers , hasPermission } from "../db";
+
 import { nanoid } from "nanoid";
 
 export const complaintsRouter = router({
@@ -10,7 +10,7 @@ export const complaintsRouter = router({
     .input(z.object({ type: z.string().optional(), status: z.string().optional() }).optional())
     .query(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "view_complaints")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "view_complaints")) throw new TRPCError({ code: "FORBIDDEN" });
       return getComplaints(input);
     }),
 
@@ -51,7 +51,7 @@ export const complaintsRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "manage_complaints")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "manage_complaints")) throw new TRPCError({ code: "FORBIDDEN" });
       const { id, ...data } = input;
       await updateComplaint(id, {
         ...data,

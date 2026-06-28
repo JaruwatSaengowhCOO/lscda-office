@@ -1,4 +1,4 @@
-import { TRPCError } from "@trpc/server";
+﻿import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import {
@@ -7,9 +7,9 @@ import {
   createLegalResearch, getLegalResearch, updateLegalResearch,
   getPublicTips, updatePublicTip, getPublicRequests, updatePublicRequest,
   getActivityLogs, logActivity,
-} from "../db";
+  hasPermission } from "../db";
 import { storagePut } from "../storage";
-import { hasPermission } from "../../shared/permissions";
+
 import { nanoid } from "nanoid";
 
 export const contentRouter = router({
@@ -30,7 +30,7 @@ export const contentRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "manage_documents")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "manage_documents")) throw new TRPCError({ code: "FORBIDDEN" });
       const fileBuffer = Buffer.from(input.fileBase64, "base64");
       const fileKey = `documents/${nanoid(8)}-${input.fileName}`;
       const { url } = await storagePut(fileKey, fileBuffer, input.mimeType);
@@ -63,7 +63,7 @@ export const contentRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "manage_press_releases")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "manage_press_releases")) throw new TRPCError({ code: "FORBIDDEN" });
       const id = await createPressRelease({
         ...input,
         authorId: ctx.user.id,
@@ -83,7 +83,7 @@ export const contentRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "manage_press_releases")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "manage_press_releases")) throw new TRPCError({ code: "FORBIDDEN" });
       const { id, ...data } = input;
       await updatePressRelease(id, {
         ...data,
@@ -106,7 +106,7 @@ export const contentRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "manage_press_releases")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "manage_press_releases")) throw new TRPCError({ code: "FORBIDDEN" });
       const id = await createPublicNotice({
         ...input,
         expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined,
@@ -134,7 +134,7 @@ export const contentRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "manage_users")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "manage_users")) throw new TRPCError({ code: "FORBIDDEN" });
       const id = await createCareer({
         ...input,
         closingDate: input.closingDate ? new Date(input.closingDate) : undefined,
@@ -157,7 +157,7 @@ export const contentRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "manage_legal_research")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "manage_legal_research")) throw new TRPCError({ code: "FORBIDDEN" });
       const id = await createLegalResearch({ ...input, createdBy: ctx.user.id });
       return { id };
     }),
@@ -171,7 +171,7 @@ export const contentRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "manage_legal_research")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "manage_legal_research")) throw new TRPCError({ code: "FORBIDDEN" });
       const { id, ...data } = input;
       await updateLegalResearch(id, data);
       return { success: true };
@@ -181,7 +181,7 @@ export const contentRouter = router({
   tips: protectedProcedure
     .query(async ({ ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "view_tips")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "view_tips")) throw new TRPCError({ code: "FORBIDDEN" });
       return getPublicTips();
     }),
 
@@ -189,7 +189,7 @@ export const contentRouter = router({
     .input(z.object({ id: z.number(), status: z.enum(["received","under_review","actioned","closed"]) }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "manage_tips")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "manage_tips")) throw new TRPCError({ code: "FORBIDDEN" });
       await updatePublicTip(input.id, { status: input.status });
       return { success: true };
     }),
@@ -197,7 +197,7 @@ export const contentRouter = router({
   requests: protectedProcedure
     .query(async ({ ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "view_requests")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "view_requests")) throw new TRPCError({ code: "FORBIDDEN" });
       return getPublicRequests();
     }),
 
@@ -209,7 +209,7 @@ export const contentRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "manage_requests")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "manage_requests")) throw new TRPCError({ code: "FORBIDDEN" });
       const { id, ...data } = input;
       await updatePublicRequest(id, { ...data, respondedBy: ctx.user.id, respondedAt: new Date() });
       return { success: true };
@@ -219,7 +219,7 @@ export const contentRouter = router({
   activityLogs: protectedProcedure
     .query(async ({ ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "view_activity_logs")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "view_activity_logs")) throw new TRPCError({ code: "FORBIDDEN" });
       return getActivityLogs(100);
     }),
 });

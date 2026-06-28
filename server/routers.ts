@@ -15,6 +15,10 @@ import { notificationsRouter } from "./routers/notifications";
 import { publicRouter } from "./routers/public";
 import { contentRouter } from "./routers/content";
 import { reportsRouter } from "./routers/reports";
+import { manualsRouter } from "./routers/manuals";
+import { permissionsRouter } from "./routers/permissions";
+import { caseDocumentsRouter } from "./routers/caseDocuments";
+import { witnessesRouter } from "./routers/witnesses";
 
 export const appRouter = router({
   system: systemRouter,
@@ -36,9 +40,13 @@ export const appRouter = router({
   complaints: complaintsRouter,
   users: usersRouter,
   notifications: notificationsRouter,
-  public: publicRouter,
+  open: publicRouter,
   content: contentRouter,
   reports: reportsRouter,
+  manuals: manualsRouter,
+  permissions: permissionsRouter,
+  witnesses: witnessesRouter,
+  caseDocuments: caseDocumentsRouter,
 });
 
 export type AppRouter = typeof appRouter;

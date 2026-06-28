@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "924746cb-649c-4af3-b0b9-c48e0cb8fc68",
-  "prevId": "e5ee2131-8259-4115-a635-13e6b27e17f1",
+  "id": "0786f3bf-509e-4178-bace-9925aaf9b6f1",
+  "prevId": "924746cb-649c-4af3-b0b9-c48e0cb8fc68",
   "tables": {
     "activity_logs": {
       "name": "activity_logs",
@@ -1638,6 +1638,52 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
+    "role_permissions": {
+      "name": "role_permissions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "da_role": {
+          "name": "da_role",
+          "type": "enum('da','chief_deputy_da','division_chief','senior_prosecutor','deputy_da','investigator','legal_clerk','victim_advocate','intern','admin')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "permission": {
+          "name": "permission",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "role_permissions_id": {
+          "name": "role_permissions_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
     "users": {
       "name": "users",
       "columns": {
@@ -2045,10 +2091,7 @@
   "_meta": {
     "schemas": {},
     "tables": {},
-    "columns": {
-      "\"users\".\"createdAt\"": "\"users\".\"created_at\"",
-      "\"users\".\"updatedAt\"": "\"users\".\"updated_at\""
-    }
+    "columns": {}
   },
   "internal": {
     "tables": {},

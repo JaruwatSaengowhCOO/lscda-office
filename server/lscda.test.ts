@@ -1,6 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+﻿import { describe, expect, it, vi, beforeEach } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import { DEFAULT_PERMISSION_MATRIX } from "../shared/permissions";
+import type { DaRole, Permission } from "../shared/permissions";
 
 // ─── Mock DB helpers ────────────────────────────────────────────────────────
 vi.mock("./db", () => ({
@@ -80,6 +82,11 @@ vi.mock("./db", () => ({
   createPublicNotice: vi.fn().mockResolvedValue(1),
   getActivityLogs: vi.fn().mockResolvedValue([]),
   logActivity: vi.fn().mockResolvedValue(undefined),
+  hasPermission: vi.fn().mockImplementation(async (role: DaRole | null | undefined, permission: Permission) => {
+    if (!role) return false;
+    const perms = DEFAULT_PERMISSION_MATRIX[role] ?? [];
+    return perms.includes(permission);
+  }),
 }));
 
 // ─── Mock storage ────────────────────────────────────────────────────────────
@@ -178,21 +185,21 @@ describe("cases", () => {
     expect(Array.isArray(result)).toBe(true);
   });
 
-  it("create returns new case with case number (da role has create_case permission)", async () => {
+  it("create returns new case id (da role has create_case permission)", async () => {
     // 'da' is the correct daRole for District Attorney (NOT 'district_attorney')
     const caller = appRouter.createCaller(makeCtx("user", "da"));
     const result = await caller.cases.create({
+      caseNumber: "LSCDA-2026-TEST01",
       title: "Test Case",
     });
     expect(result).toBeDefined();
-    // Case number is generated with nanoid so we check the format pattern
-    expect(result.caseNumber).toMatch(/^LSCDA-\d{4}-[A-Z0-9]+$/);
+    expect(result.id).toBeDefined();
   });
 
   it("create throws UNAUTHORIZED for unauthenticated user", async () => {
     const caller = appRouter.createCaller(makePublicCtx());
     await expect(
-      caller.cases.create({ title: "Test" })
+      caller.cases.create({ caseNumber: "LSCDA-2026-TEST02", title: "Test" })
     ).rejects.toThrow();
   });
 
@@ -200,7 +207,7 @@ describe("cases", () => {
     // investigator does NOT have create_case permission
     const caller = appRouter.createCaller(makeCtx("user", "investigator"));
     await expect(
-      caller.cases.create({ title: "Test" })
+      caller.cases.create({ caseNumber: "LSCDA-2026-TEST03", title: "Test" })
     ).rejects.toThrow();
   });
 });
@@ -300,7 +307,7 @@ describe("victims", () => {
 describe("public services", () => {
   it("submitTip returns id and message (requires isAnonymous, subject, description)", async () => {
     const caller = appRouter.createCaller(makePublicCtx());
-    const result = await caller.public.submitTip({
+    const result = await caller.open.submitTip({
       isAnonymous: false,
       name: "John Citizen",
       contact: "john@example.com",
@@ -314,7 +321,7 @@ describe("public services", () => {
 
   it("submitTip works anonymously (isAnonymous: true, no name/contact required)", async () => {
     const caller = appRouter.createCaller(makePublicCtx());
-    const result = await caller.public.submitTip({
+    const result = await caller.open.submitTip({
       isAnonymous: true,
       subject: "Drug Activity",
       description: "Suspicious drug activity near the park",
@@ -325,7 +332,7 @@ describe("public services", () => {
 
   it("submitRequest returns id and message (requires name, contact, requestType, description)", async () => {
     const caller = appRouter.createCaller(makePublicCtx());
-    const result = await caller.public.submitRequest({
+    const result = await caller.open.submitRequest({
       name: "John Public",
       contact: "john@example.com",
       requestType: "general_inquiry",
@@ -338,7 +345,7 @@ describe("public services", () => {
 
   it("submitRequest with case_status type works", async () => {
     const caller = appRouter.createCaller(makePublicCtx());
-    const result = await caller.public.submitRequest({
+    const result = await caller.open.submitRequest({
       name: "Jane Doe",
       contact: "jane@example.com",
       requestType: "case_status",
@@ -352,25 +359,25 @@ describe("public services", () => {
   it("checkCaseStatus returns null for non-existent case", async () => {
     // Procedure is named checkCaseStatus (NOT caseStatus)
     const caller = appRouter.createCaller(makePublicCtx());
-    const result = await caller.public.checkCaseStatus({ caseNumber: "DA-9999-9999" });
+    const result = await caller.open.checkCaseStatus({ caseNumber: "DA-9999-9999" });
     expect(result).toBeNull();
   });
 
   it("pressReleases returns empty array (public procedure)", async () => {
     const caller = appRouter.createCaller(makePublicCtx());
-    const result = await caller.public.pressReleases();
+    const result = await caller.open.pressReleases();
     expect(Array.isArray(result)).toBe(true);
   });
 
   it("careers returns empty array (public procedure)", async () => {
     const caller = appRouter.createCaller(makePublicCtx());
-    const result = await caller.public.careers();
+    const result = await caller.open.careers();
     expect(Array.isArray(result)).toBe(true);
   });
 
   it("documents returns empty array (public procedure)", async () => {
     const caller = appRouter.createCaller(makePublicCtx());
-    const result = await caller.public.documents();
+    const result = await caller.open.documents();
     expect(Array.isArray(result)).toBe(true);
   });
 });

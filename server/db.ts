@@ -18,7 +18,13 @@ import {
   activityLogs, InsertActivityLog,
   publicTips,
   publicRequests,
+  rolePermissions,
+  caseDocuments, InsertCaseDocument,
+  caseDocumentVersions,
+  witnesses, InsertWitness,
 } from "../drizzle/schema";
+import type { DaRole, Permission } from "../shared/permissions";
+import { DEFAULT_PERMISSION_MATRIX } from "../shared/permissions";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -86,6 +92,16 @@ export async function getAllUsers() {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(users).orderBy(desc(users.createdAt));
+}
+
+export async function getUsersForAssignment() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ id: users.id, name: users.name, username: users.username, daRole: users.daRole })
+    .from(users)
+    .where(eq(users.isActive, true))
+    .orderBy(users.name);
 }
 
 export async function updateUserDaRole(userId: number, daRole: string, department?: string, badgeNumber?: string, phone?: string) {
@@ -342,6 +358,12 @@ export async function getEvidenceById(id: number) {
   if (!db) return undefined;
   const result = await db.select().from(evidence).where(eq(evidence.id, id)).limit(1);
   return result[0];
+}
+
+export async function updateEvidence(id: number, data: Partial<InsertEvidence>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(evidence).set(data).where(eq(evidence.id, id));
 }
 
 export async function addEvidenceAuditLog(data: typeof evidenceAuditLogs.$inferInsert) {
@@ -606,23 +628,24 @@ export async function updatePublicRequest(id: number, data: Partial<typeof publi
 
 export async function getDashboardStats() {
   const db = await getDb();
-  if (!db) return { activeCases: 0, pendingReviews: 0, upcomingHearings: 0, convictionRate: 0 };
+  if (!db) return { activeCases: 0, pendingReviews: 0, upcomingHearings: 0, convictionRate: 0, pendingWarrants: 0 };
 
   const [activeCasesResult] = await db.select({ count: sql<number>`count(*)` }).from(cases)
-    .where(and(
-      sql`status NOT IN ('closed', 'dismissed')`
-    ));
+    .where(sql`status NOT IN ('closed', 'dismissed', 'rejected')`);
 
   const [pendingReviewsResult] = await db.select({ count: sql<number>`count(*)` }).from(cases)
-    .where(eq(cases.status, "case_review"));
+    .where(eq(cases.status, "case_review" as any));
 
   const [upcomingHearingsResult] = await db.select({ count: sql<number>`count(*)` }).from(courtHearings)
     .where(and(gte(courtHearings.scheduledAt, new Date()), eq(courtHearings.status, "scheduled")));
 
+  const [pendingWarrantsResult] = await db.select({ count: sql<number>`count(*)` }).from(warrants)
+    .where(eq(warrants.status, "pending_approval"));
+
   const [closedResult] = await db.select({ count: sql<number>`count(*)` }).from(cases)
-    .where(eq(cases.status, "closed"));
+    .where(eq(cases.status, "closed" as any));
   const [dismissedResult] = await db.select({ count: sql<number>`count(*)` }).from(cases)
-    .where(eq(cases.status, "dismissed"));
+    .where(eq(cases.status, "dismissed" as any));
 
   const closed = closedResult?.count ?? 0;
   const dismissed = dismissedResult?.count ?? 0;
@@ -633,9 +656,211 @@ export async function getDashboardStats() {
     activeCases: activeCasesResult?.count ?? 0,
     pendingReviews: pendingReviewsResult?.count ?? 0,
     upcomingHearings: upcomingHearingsResult?.count ?? 0,
+    pendingWarrants: pendingWarrantsResult?.count ?? 0,
     convictionRate,
     closedCases: closed,
     dismissedCases: dismissed,
     totalCases: (activeCasesResult?.count ?? 0) + closed + dismissed,
   };
+}
+
+// ─── Role Permissions ─────────────────────────────────────────────────────────
+
+interface PermCacheEntry {
+  perms: Set<Permission>;
+  cachedAt: number; // ms since epoch
+}
+
+/** In-process permission cache with a 60-second TTL */
+const _permCache = new Map<DaRole, PermCacheEntry>();
+const PERM_CACHE_TTL_MS = 60_000;
+
+export async function getRolePermissions(role: DaRole): Promise<Set<Permission>> {
+  const entry = _permCache.get(role);
+  if (entry && (Date.now() - entry.cachedAt) < PERM_CACHE_TTL_MS) {
+    return entry.perms; // cache hit within TTL
+  }
+  // cache miss or stale — re-fetch
+  const db = await getDb();
+  if (!db) return new Set();
+  const rows = await db.select({ permission: rolePermissions.permission })
+    .from(rolePermissions)
+    .where(eq(rolePermissions.role, role));
+  const perms = new Set(rows.map(r => r.permission as Permission));
+  _permCache.set(role, { perms, cachedAt: Date.now() });
+  return perms;
+}
+
+export async function hasPermission(role: DaRole | null | undefined, permission: Permission): Promise<boolean> {
+  if (!role) return false;
+  const perms = await getRolePermissions(role);
+  return perms.has(permission);
+}
+
+export async function setRolePermissions(role: DaRole, permissions: Permission[]): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.transaction(async (tx) => {
+    await tx.delete(rolePermissions).where(eq(rolePermissions.role, role));
+    if (permissions.length > 0) {
+      await tx.insert(rolePermissions).values(
+        permissions.map(p => ({ role, permission: p }))
+      );
+    }
+  });
+  _permCache.delete(role); // immediate eviction — next check re-fetches
+}
+
+export async function getAllRolePermissions(): Promise<Record<DaRole, Permission[]>> {
+  const db = await getDb();
+  if (!db) return {} as Record<DaRole, Permission[]>;
+  const rows = await db.select().from(rolePermissions);
+  const result: Record<string, Permission[]> = {};
+  for (const row of rows) {
+    if (!result[row.role]) result[row.role] = [];
+    result[row.role].push(row.permission as Permission);
+  }
+  return result as Record<DaRole, Permission[]>;
+}
+
+/**
+ * Maps each `page:` permission key to the action permission that gates it.
+ * A role that holds the action permission also gets the corresponding page key.
+ */
+const PAGE_PERMISSION_GATES: Array<{ page: string; requiredAction: Permission }> = [
+  // Case detail tabs
+  { page: "page:case_detail/overview",   requiredAction: "view_case" },
+  { page: "page:case_detail/documents",  requiredAction: "view_case_documents" },
+  { page: "page:case_detail/evidence",   requiredAction: "view_evidence" },
+  { page: "page:case_detail/warrants",   requiredAction: "view_warrant" },
+  { page: "page:case_detail/witnesses",  requiredAction: "view_witnesses" },
+  { page: "page:case_detail/filings",    requiredAction: "view_case" },
+  { page: "page:case_detail/timeline",   requiredAction: "view_case" },
+  { page: "page:case_detail/activity",   requiredAction: "view_activity_logs" },
+  // Top-level dashboard routes
+  { page: "page:dashboard/cases",        requiredAction: "view_case" },
+  { page: "page:dashboard/warrants",     requiredAction: "view_warrant" },
+  { page: "page:dashboard/admin",        requiredAction: "manage_users" },
+];
+
+/** Seed default permissions from the hardcoded matrix if table is empty */
+export async function seedRolePermissions(): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db.select({ id: rolePermissions.id }).from(rolePermissions).limit(1);
+  if (existing.length > 0) return; // Already seeded — Req 13.13
+  const rows: Array<{ role: DaRole; permission: string }> = [];
+
+  for (const [role, perms] of Object.entries(DEFAULT_PERMISSION_MATRIX)) {
+    // Seed action permissions from the default matrix
+    for (const perm of perms) {
+      rows.push({ role: role as DaRole, permission: perm });
+    }
+
+    // Seed page: permission keys based on which action permissions the role holds
+    const permSet = new Set<string>(perms);
+    for (const { page, requiredAction } of PAGE_PERMISSION_GATES) {
+      if (permSet.has(requiredAction)) {
+        rows.push({ role: role as DaRole, permission: page });
+      }
+    }
+  }
+
+  if (rows.length > 0) {
+    await db.insert(rolePermissions).values(rows);
+  }
+  console.log("[db] Role permissions seeded from default matrix (including page: keys)");
+}
+
+// ─── Case Documents ───────────────────────────────────────────────────────────
+
+export async function createCaseDocument(data: InsertCaseDocument) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const [result] = await db.insert(caseDocuments).values(data);
+  return (result as any).insertId as number;
+}
+
+export async function getCaseDocuments(caseId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(caseDocuments).where(eq(caseDocuments.caseId, caseId)).orderBy(desc(caseDocuments.createdAt));
+}
+
+export async function getCaseDocumentById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(caseDocuments).where(eq(caseDocuments.id, id)).limit(1);
+  return result[0];
+}
+
+export async function updateCaseDocument(id: number, data: Partial<InsertCaseDocument>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(caseDocuments).set(data).where(eq(caseDocuments.id, id));
+}
+
+export async function deleteCaseDocument(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(caseDocuments).where(eq(caseDocuments.id, id));
+}
+
+export async function addCaseDocumentVersion(data: typeof caseDocumentVersions.$inferInsert) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(caseDocumentVersions).values(data);
+}
+
+export async function getCaseDocumentVersions(documentId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(caseDocumentVersions)
+    .where(eq(caseDocumentVersions.documentId, documentId))
+    .orderBy(desc(caseDocumentVersions.version));
+}
+
+// ─── Witnesses ────────────────────────────────────────────────────────────────
+
+export async function createWitness(data: InsertWitness) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const [result] = await db.insert(witnesses).values(data);
+  return (result as any).insertId as number;
+}
+
+export async function getWitnessesByCaseId(caseId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(witnesses).where(eq(witnesses.caseId, caseId)).orderBy(desc(witnesses.createdAt));
+}
+
+export async function getWitnessById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(witnesses).where(eq(witnesses.id, id)).limit(1);
+  return result[0];
+}
+
+export async function updateWitness(id: number, data: Partial<InsertWitness>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(witnesses).set(data).where(eq(witnesses.id, id));
+}
+
+export async function deleteWitness(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(witnesses).where(eq(witnesses.id, id));
+}
+
+// ─── Case Activity Logs ───────────────────────────────────────────────────────
+
+export async function getCaseActivityLogs(caseId: number, limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(activityLogs)
+    .where(and(eq(activityLogs.entityType, "case"), eq(activityLogs.entityId, caseId)))
+    .orderBy(desc(activityLogs.createdAt))
+    .limit(limit);
 }

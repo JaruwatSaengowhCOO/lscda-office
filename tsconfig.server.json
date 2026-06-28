@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "noEmit": true,
+    "jsx": "preserve"
+  },
+  "include": [
+    "server/**/*.ts",
+    "shared/**/*.ts",
+    "drizzle/**/*.ts",
+    "scripts/**/*.ts"
+  ]
+}

@@ -1,15 +1,15 @@
-import { TRPCError } from "@trpc/server";
+﻿import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
-import { createDefendant, getDefendants, getDefendantById, updateDefendant, logActivity } from "../db";
-import { hasPermission } from "../../shared/permissions";
+import { createDefendant, getDefendants, getDefendantById, updateDefendant, logActivity , hasPermission } from "../db";
+
 
 export const defendantsRouter = router({
   list: protectedProcedure
     .input(z.object({ search: z.string().optional() }).optional())
     .query(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "view_defendants")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "view_defendants")) throw new TRPCError({ code: "FORBIDDEN" });
       return getDefendants(input?.search);
     }),
 
@@ -17,7 +17,7 @@ export const defendantsRouter = router({
     .input(z.object({ id: z.number() }))
     .query(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "view_defendants")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "view_defendants")) throw new TRPCError({ code: "FORBIDDEN" });
       const d = await getDefendantById(input.id);
       if (!d) throw new TRPCError({ code: "NOT_FOUND" });
       return d;
@@ -37,7 +37,7 @@ export const defendantsRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "edit_defendants")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "edit_defendants")) throw new TRPCError({ code: "FORBIDDEN" });
       const id = await createDefendant({ ...input, createdBy: ctx.user.id });
       await logActivity({ userId: ctx.user.id, userName: ctx.user.name ?? "", action: "create_defendant", entityType: "defendant", entityId: id });
       return { id };
@@ -58,7 +58,7 @@ export const defendantsRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "edit_defendants")) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!await hasPermission(daRole, "edit_defendants")) throw new TRPCError({ code: "FORBIDDEN" });
       const { id, ...data } = input;
       await updateDefendant(id, data);
       return { success: true };

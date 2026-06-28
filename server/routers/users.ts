@@ -1,8 +1,8 @@
-import { TRPCError } from "@trpc/server";
+﻿import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
-import { getAllUsers, updateUserDaRole, logActivity, createUser, updateUser } from "../db";
-import { hasPermission } from "../../shared/permissions";
+import { getAllUsers, updateUserDaRole, logActivity, createUser, updateUser , hasPermission, getUsersForAssignment } from "../db";
+
 import { createPasswordHash } from "./auth";
 
 const daRoleEnum = z.enum([
@@ -14,10 +14,15 @@ export const usersRouter = router({
   list: protectedProcedure
     .query(async ({ ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "manage_users") && ctx.user.role !== "admin") {
+      if (!await hasPermission(daRole, "manage_users") && ctx.user.role !== "admin") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       return getAllUsers();
+    }),
+
+  listForAssignment: protectedProcedure
+    .query(async () => {
+      return getUsersForAssignment();
     }),
 
   create: adminProcedure
@@ -100,7 +105,7 @@ export const usersRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const daRole = ctx.user.daRole as any;
-      if (!hasPermission(daRole, "manage_users") && ctx.user.role !== "admin") {
+      if (!await hasPermission(daRole, "manage_users") && ctx.user.role !== "admin") {
         throw new TRPCError({ code: "FORBIDDEN" });
       }
       await updateUserDaRole(input.userId, input.daRole, input.department, input.badgeNumber, input.phone);
