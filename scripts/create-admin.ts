@@ -5,7 +5,8 @@
  * Example: tsx scripts/create-admin.ts admin admin1234 "ผู้ดูแลระบบ"
  */
 
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import "dotenv/config";
+import { createHash, randomBytes } from "crypto";
 import { drizzle } from "drizzle-orm/mysql2";
 import { users } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
